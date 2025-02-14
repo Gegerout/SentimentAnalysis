@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+
+{% block title %}Загрузка файла{% endblock %}
+
+{% block content %}
+    <div class="upload-container">
+        <h2>Загрузите файл</h2>
+        <form method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+
+            <!-- Кастомный input -->
+            <label for="file-upload" class="file-label" id="file-name-label">Выбрать файл</label>
+            <input id="file-upload" class="custom-file-input" type="file" name="file" onchange="updateFileName()">
+
+            <br><br>
+            <button type="submit">Загрузить</button>
+        </form>
+    </div>
+
+    <script>
+        function updateFileName() {
+            var fileInput = document.getElementById('file-upload');
+            var fileNameLabel = document.getElementById('file-name-label');
+            var fileName = fileInput.files[0] ? fileInput.files[0].name : "Выбрать файл";
+            fileNameLabel.textContent = fileName;
+        }
+    </script>
+
+{% endblock %}

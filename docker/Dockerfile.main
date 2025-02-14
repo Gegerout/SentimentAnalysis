@@ -1,0 +1,15 @@
+# Dockerfile.main
+FROM python:3.10-slim
+
+# Устанавливаем рабочую директорию
+WORKDIR /app
+
+# Копируем список зависимостей и устанавливаем их
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Копируем весь исходный код проекта
+COPY . .
+
+# Запускаем main.py (убедитесь, что main.py находится в корне проекта)
+CMD ["python", "main.py"]
