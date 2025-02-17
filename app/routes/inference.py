@@ -194,6 +194,7 @@ def predict_file():
         return jsonify({"error": "Не передан файл в поле 'file'."}), 400
 
     file = request.files['file']
+    text_column = request.form.get('text_column', "MessageText")
     try:
         # Читаем Excel‑файл в DataFrame
         df = pd.read_excel(file)
@@ -201,10 +202,10 @@ def predict_file():
         return jsonify({"error": f"Ошибка чтения Excel‑файла: {str(e)}"}), 400
 
     # Проверяем наличие столбца с текстами (ожидаем 'MessageText')
-    if 'MessageText' not in df.columns:
+    if text_column not in df.columns:
         return jsonify({"error": "В Excel‑файле должен присутствовать столбец 'MessageText'."}), 400
 
-    texts = df['MessageText'].tolist()
+    texts = df[text_column].tolist()
 
     # Получаем имя модели из формы (если передано)
     model_name = request.form.get('model_name')
