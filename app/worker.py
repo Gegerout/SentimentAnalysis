@@ -1,8 +1,8 @@
 import json
 from kafka import KafkaConsumer, KafkaProducer
 from app.config import Config
+from app.models.ensemble_sentiment_model import EnsembleSentimentModel
 from app.services.model_selector import select_model
-
 
 def start_worker():
     """
@@ -15,7 +15,6 @@ def start_worker():
     'inference_response' для инференса) с тем же 'correlation_id'.
     """
     consumer = KafkaConsumer(
-        # Подписываемся сразу на два топика
         'dataset_preparation', 'inference_request',
         bootstrap_servers=Config.KAFKA_BROKER_URL,
         value_deserializer=lambda m: json.loads(m.decode('utf-8')),
@@ -42,9 +41,9 @@ def start_worker():
         elif task_type == 'predict_text':
             # Инференс для одиночного текста
             text = task.get('text')
-            checkpoint = task.get('checkpoint')
+            model_name = task.get('model_name')  # получаем имя модели из задачи
             try:
-                model = select_model(checkpoint)
+                model = select_model(model_name)
                 result = model.predict(text, truncation=True, max_length=512)
                 response = {'correlation_id': correlation_id, 'result': result}
             except Exception as e:
@@ -54,15 +53,39 @@ def start_worker():
         elif task_type == 'predict_file':
             # Инференс для файла: список текстов
             texts = task.get('texts')
-            checkpoint = task.get('checkpoint')
+            model_name = task.get('model_name')  # получаем имя модели из задачи
             try:
-                model = select_model(checkpoint)
+                model = select_model(model_name)
                 results = model.predict_batch(texts, batch_size=16, truncation=True, max_length=512)
                 response = {'correlation_id': correlation_id, 'results': results}
             except Exception as e:
                 response = {'correlation_id': correlation_id, 'error': str(e)}
             reply_to = task.get('reply_to', 'inference_response')
+        elif task_type == 'predict_text_ensemble':
+            # Обработка одиночного предсказания ансамблевой модели
+            text = task.get('text')
+            try:
+                model = EnsembleSentimentModel()
+                model.load_cached_models()  # подгружаем логистическую и мета-модель из кеша
+                result = model.predict(text)
+                # Оборачиваем результат в словарь с ключом "label"
+                response = {'correlation_id': correlation_id, 'result': {'label': result}}
+            except Exception as e:
+                response = {'correlation_id': correlation_id, 'error': str(e)}
+            reply_to = task.get('reply_to', 'inference_response')
 
+        elif task_type == 'predict_file_ensemble':
+            # Обработка пакетного предсказания ансамблевой модели
+            texts = task.get('texts')
+            try:
+                model = EnsembleSentimentModel()
+                model.load_cached_models()
+                results = model.predict_batch(texts)
+                # Формируем список словарей для единообразия
+                response = {'correlation_id': correlation_id, 'results': [{'label': r} for r in results]}
+            except Exception as e:
+                response = {'correlation_id': correlation_id, 'error': str(e)}
+            reply_to = task.get('reply_to', 'inference_response')
         else:
             response = {'correlation_id': correlation_id, 'error': 'Unknown task type'}
             reply_to = task.get('reply_to', 'unknown_response')

@@ -1,10 +1,12 @@
 import multiprocessing
 from app import create_app
 from app.worker import start_worker
+from flask_cors import CORS
 
 
 def run_flask():
     app = create_app()
+    CORS(app)
     # Указываем host="0.0.0.0", чтобы сервер слушал все интерфейсы, и был доступен извне контейнера.
     app.run(host='0.0.0.0', port=8000, debug=True, threaded=True)
 

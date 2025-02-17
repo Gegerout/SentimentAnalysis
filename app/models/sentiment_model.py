@@ -1,3 +1,4 @@
+import os
 import torch
 from transformers import AutoTokenizer, AutoModelForSequenceClassification, pipeline
 from app.config import Config
@@ -12,16 +13,19 @@ class SentimentModel:
         """
         Если model_path не указан, используется модель по умолчанию.
         model_path может быть либо именем модели для скачивания,
-        либо локальным путём к чекпоинту (например, './checkpoints/имя_чекпоинта.ckpt').
+        либо локальным путём к модели.
+        Если базовое имя model_path начинается с "models--",
+        то этот префикс удаляется, а все последующие "--" заменяются на "/"
+        для формирования корректного идентификатора модели.
         """
         self.model_path = model_path or Config.DEFAULT_MODEL_NAME
+        model_id = self.model_path
 
         # Загружаем токенизатор и модель с указанием кэш-директории
-        self.tokenizer = AutoTokenizer.from_pretrained(self.model_path, cache_dir=Config.MODEL_CACHE_DIR)
-        self.model = AutoModelForSequenceClassification.from_pretrained(self.model_path,
-                                                                        cache_dir=Config.MODEL_CACHE_DIR)
+        self.tokenizer = AutoTokenizer.from_pretrained(model_id, cache_dir=Config.MODEL_CACHE_DIR)
+        self.model = AutoModelForSequenceClassification.from_pretrained(model_id, cache_dir=Config.MODEL_CACHE_DIR)
 
-        # Создаем пайплайн без передачи cache_dir – он уже использует загруженные объекты
+        # Создаем пайплайн – он использует уже загруженные модель и токенизатор
         self.sentiment_analyzer = pipeline(
             "sentiment-analysis",
             model=self.model,
