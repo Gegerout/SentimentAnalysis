@@ -27,7 +27,7 @@
 
 1. **Скачайте предобученные модели**
 
-   Перейдите по [ссылке](#https://drive.google.com/file/d/13pZ7cee6WoCU9NIa9niLAyJL58_AH2NX/view?usp=sharing) и скачайте
+   Перейдите по [ссылке](https://drive.google.com/file/d/13pZ7cee6WoCU9NIa9niLAyJL58_AH2NX/view?usp=sharing) и скачайте
    необходимые модели для работы системы.
 
 2. **Клонируйте репозиторий**

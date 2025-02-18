@@ -4,7 +4,6 @@ from app.config import Config
 from app.models.ensemble_sentiment_model import EnsembleSentimentModel
 from app.services.model_selector import select_model
 
-model = select_model()
 
 def start_worker():
     """
