@@ -259,3 +259,81 @@ def predict_file():
         as_attachment=True,
         mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     )
+
+@inference_bp.route('/predict_file_custom', methods=['POST'])
+def predict_file_custom():
+    if 'file' not in request.files:
+        return jsonify({"error": "Не передан файл в поле 'file'."}), 400
+
+    file = request.files['file']
+    text_column = request.form.get('text_column', "MessageText")
+
+    try:
+        df = pd.read_excel(file)
+    except Exception as e:
+        return jsonify({"error": f"Ошибка чтения Excel‑файла: {str(e)}"}), 400
+
+    if text_column not in df.columns:
+        return jsonify({"error": f"В Excel‑файле должен присутствовать столбец '{text_column}'."}), 400
+
+    texts = df[text_column].tolist()
+    model_name = request.form.get('model_name')
+
+    start_time = time.time()
+    # Флаг, определяющий, какой метод предсказания использовался
+    method_used = None
+    try:
+        # Пытаемся использовать вашу модель
+        from metamodels import predict as my_model_predict
+        predictions = my_model_predict(texts, verbose=False)
+        # Извлекаем сентимент для каждого текста
+        sentiments = [pred.get('sentiment', 'error') for pred in predictions]
+        method_used = 'my_model'
+    except Exception as e:
+        # Если произошла ошибка – переходим на обычное предсказание через Kafka
+        try:
+            task = {
+                'type': 'predict_file',
+                'texts': texts,
+                'model_name': model_name
+            }
+            response = send_task_and_wait_for_response(
+                task,
+                request_topic='inference_request',
+                response_topic='inference_response',
+                timeout=30  # таймаут в секундах
+            )
+            results = response.get('results')
+            if not results:
+                return jsonify({"error": "Ответ от воркера не содержит результатов."}), 500
+            sentiments = []
+            for res in results:
+                label = res.get("label", "").lower()
+                sentiment_letter = SENTIMENT_MAP.get(label, "N/A")
+                sentiments.append(sentiment_letter)
+            method_used = 'fallback'
+        except Exception as ex:
+            return jsonify({"error": f"Ошибка при выполнении предсказаний (fallback): {str(ex)}"}), 500
+
+    elapsed_time = time.time() - start_time
+
+    # Добавляем результаты в DataFrame
+    df['sentiment'] = sentiments
+
+    # Формируем Excel‑файл с результатами и метаинформацией
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        df.to_excel(writer, index=False, sheet_name='Predictions')
+        meta_df = pd.DataFrame({
+            "inference_time": [elapsed_time],
+            "method_used": [method_used]
+        })
+        meta_df.to_excel(writer, index=False, sheet_name='Meta')
+    output.seek(0)
+
+    return send_file(
+        output,
+        download_name="result.xlsx",
+        as_attachment=True,
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
