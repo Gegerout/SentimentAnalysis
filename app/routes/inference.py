@@ -290,7 +290,6 @@ def predict_file_custom():
         sentiments = [pred.get('sentiment', 'error') for pred in predictions]
         method_used = 'my_model'
     except Exception as e:
-        # Если произошла ошибка – переходим на обычное предсказание через Kafka
         try:
             task = {
                 'type': 'predict_file',
